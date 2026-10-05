@@ -241,6 +241,7 @@ body.playing #dim { background: rgba(2, 6, 23, 0.25); }
 }
 .card.ok::before { content: "✓"; }
 .card.bad::before { content: "✗"; }
+.card.covered { opacity: 0.35; cursor: default; }
 .card.moving { animation: pop 0.35s; }
 
 @keyframes shake {

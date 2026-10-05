@@ -153,6 +153,12 @@ function pickMission(area, level) {
   return shuffle(ok.filter((m) => m.diff === top))[0];
 }
 
+// Un requisito puede ser un EPP ('casco') o varias alternativas válidas (['respirador', 'fullface']).
+const groupsOf = (mission) => mission.required.map((g) => (Array.isArray(g) ? g : [g]));
+const allRequired = (mission) => groupsOf(mission).flat();
+const missingGroups = (r) => groupsOf(r.mission).filter((g) => !g.some((id) => r.found.includes(id)));
+const groupName = (g) => g.map((id) => EPPS[id].name).join(' o ');
+
 function buildCards(required, count) {
   const others = Object.keys(EPPS).filter((id) => !required.includes(id));
   // Priorizar distractores "tramposos": mismo lugar del cuerpo que un EPP requerido.
@@ -171,7 +177,7 @@ function briefingScreen(areaId) {
   const mission = pickMission(area, level);
   state.run = {
     area, level, mission,
-    cards: buildCards(mission.required, level.cards),
+    cards: buildCards(allRequired(mission), level.cards),
     found: [],
     wrong: [],
     score: 0,
@@ -240,13 +246,13 @@ function renderPlay(moved = false) {
   const perCol = half > 6 ? 2 : 1;
   const card = (c) => {
     const e = EPPS[c.id];
-    const cls = c.status === 'ok' ? 'ok' : c.status === 'bad' ? 'bad' : moved ? 'moving' : '';
+    const cls = c.status === 'ok' ? 'ok' : c.status === 'bad' ? 'bad' : c.status === 'covered' ? 'covered' : moved ? 'moving' : '';
     return `<button class="card ${cls}" data-hand data-action="pick" data-arg="${c.id}" ${c.status !== 'idle' ? 'disabled' : ''}>
       <span class="ico">${e.icon}</span><span class="lbl">${e.name}</span></button>`;
   };
   const side = perCol === 2 ? '29vw' : '21vw';
   const count = r.level.showCount
-    ? `<div class="count">EPP colocados: ${r.found.length} / ${r.mission.required.length}</div>`
+    ? `<div class="count">EPP colocados: ${r.found.length} / ${groupsOf(r.mission).length}</div>`
     : `<div class="count">EPP colocados: ${r.found.length}</div>`;
   // Lista de lo que ya lleva puesto (respaldo por si la cámara no ve bien al jugador).
   const kit = r.found.length
@@ -288,15 +294,18 @@ function pick(id, el) {
   const card = r.cards.find((c) => c.id === id);
   if (!card || card.status !== 'idle') return;
   const e = EPPS[id];
-  if (r.mission.required.includes(id)) {
+  if (allRequired(r.mission).includes(id)) {
     card.status = 'ok';
     r.found.push(id);
+    // Si era una alternativa (ej. mascarilla o full face), las otras opciones quedan cubiertas.
+    const group = groupsOf(r.mission).find((g) => g.includes(id));
+    r.cards.forEach((c) => { if (c.status === 'idle' && group.includes(c.id)) c.status = 'covered'; });
     r.score += SCORE.correct;
     vision.equip(id, el);
     sfx.good();
     speak(e.name);
     toast(`✓ ${e.icon} ${e.name}: ${e.why}`, 'ok');
-    if (r.found.length === r.mission.required.length) {
+    if (missingGroups(r).length === 0) {
       clearInterval(state.timer);   // detener el reloj mientras se celebra
       r.frozenLeft = (r.endAt - performance.now()) / 1000;
       renderPlay();
@@ -329,7 +338,7 @@ function finish(success, reason) {
   clearInterval(state.timer);
   music.stop();
   const left = Math.max(0, Math.ceil(r.frozenLeft ?? (r.endAt - performance.now()) / 1000));
-  const missing = r.mission.required.filter((id) => !r.found.includes(id));
+  const missing = missingGroups(r);
   let points = r.found.length * SCORE.correct + r.wrong.length * SCORE.wrong + missing.length * SCORE.missing;
   const perfect = success && r.wrong.length === 0;
   if (success) points += left * SCORE.perSecond + (perfect ? SCORE.perfect : 0);
@@ -343,7 +352,10 @@ function finish(success, reason) {
   }
 
   const items = [
-    ...r.mission.required.map((id) => ({ id, cls: r.found.includes(id) ? 'ok' : 'miss', tag: r.found.includes(id) ? '✓ Correcto' : '⚠ Te faltó' })),
+    ...groupsOf(r.mission).map((g) => {
+      const got = g.find((id) => r.found.includes(id));
+      return got ? { id: got, cls: 'ok', tag: '✓ Correcto' } : { id: g[0], cls: 'miss', tag: '⚠ Te faltó', name: groupName(g) };
+    }),
     ...r.wrong.map((id) => ({ id, cls: 'bad', tag: '✗ No correspondía' })),
   ];
   const title = success ? (perfect ? '¡Misión perfecta! 🏆' : '¡Misión cumplida! ✅')
@@ -358,10 +370,10 @@ function finish(success, reason) {
         ? `<p class="score-big">+${points} pts</p><p class="subtitle">${left} s restantes${perfect ? ` · bono perfecto +${SCORE.perfect}` : ''} · Total: <strong>${state.total}</strong></p>`
         : `<p class="subtitle">En planta, entrar sin el EPP completo pone en riesgo tu vida. ¡Inténtalo de nuevo!</p>`}
       <div class="result-grid">
-        ${items.map(({ id, cls, tag }) => {
+        ${items.map(({ id, cls, tag, name }) => {
           const e = EPPS[id];
           const why = cls === 'bad' && !e.distractor ? 'No es necesario para esta tarea.' : e.why;
-          return `<div class="result-item ${cls}"><span class="ico">${e.icon}</span><div><strong>${e.name}</strong><small>${tag} · ${why}</small></div></div>`;
+          return `<div class="result-item ${cls}"><span class="ico">${e.icon}</span><div><strong>${name || e.name}</strong><small>${tag} · ${why}</small></div></div>`;
         }).join('')}
       </div>
       <div class="btn-row">
@@ -372,7 +384,7 @@ function finish(success, reason) {
       </div>
     </div>`);
   speak(success ? `${perfect ? 'Misión perfecta' : 'Misión cumplida'}. Ganaste ${points} puntos.`
-    : missing.length ? `${reason === 'time' ? 'Se acabó el tiempo' : 'Demasiados errores'}. Te faltó: ${missing.map((id) => EPPS[id].name).join(', ')}.`
+    : missing.length ? `${reason === 'time' ? 'Se acabó el tiempo' : 'Demasiados errores'}. Te faltó: ${missing.map(groupName).join(', ')}.`
     : 'Demasiados errores. Inténtalo de nuevo.');
 }
 
