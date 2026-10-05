@@ -1,8 +1,9 @@
 // Visión por computadora: cámara + MediaPipe (manos y rostro).
 // - Las manos controlan el juego: el dedo índice es el cursor. Se "toca" un botón
 //   manteniendo el dedo encima (dwell) o haciendo una pinza con pulgar e índice.
-// - El rostro se usa para dibujar sobre el jugador los EPPs que va eligiendo.
-import { FilesetResolver, HandLandmarker, FaceLandmarker } from '../vendor/mediapipe/vision_bundle.mjs';
+// - El rostro y el cuerpo (pose) se usan para "ponerle" al jugador, en la imagen de la
+//   cámara, los EPPs que va eligiendo: casco en la cabeza, chaleco en el torso, etc.
+import { FilesetResolver, HandLandmarker, FaceLandmarker, PoseLandmarker } from '../vendor/mediapipe/vision_bundle.mjs';
 import { EPPS } from './data.js';
 
 const DWELL_MS = 900;         // tiempo con la mano encima para seleccionar
@@ -32,6 +33,9 @@ export class Vision {
     this.frame = 0;
     this.cursors = [];              // estado por mano: {x, y, target, since, pinched, locked}
     this.equipped = [];             // ids de EPP a dibujar sobre el jugador
+    this.anims = [];                // EPPs "volando" desde la tarjeta hacia el cuerpo
+    this.pose = null;
+    this.poseResult = null;
     this.ready = false;
     this.cooldownUntil = 0;
     this.resize();
@@ -85,12 +89,31 @@ export class Vision {
     } catch (e) {
       console.warn('No se pudo cargar el detector de rostro', e);
     }
+    // La pose ubica torso, muñecas y tobillos (chaleco, overol, arnés, calzado). También opcional.
+    try {
+      this.pose = await create(PoseLandmarker, {
+        baseOptions: base('../vendor/models/pose_landmarker_lite.task'),
+        runningMode: 'VIDEO',
+        numPoses: 1,
+      });
+    } catch (e) {
+      console.warn('No se pudo cargar el detector de pose', e);
+    }
     this.ready = true;
     this.onStatus('ok', 'Cámara activa · usa tu dedo índice');
     this.loop();
   }
 
-  setEquipped(ids) { this.equipped = ids.slice(); }
+  setEquipped(ids) { this.equipped = ids.slice(); this.anims = []; }
+
+  // Agrega un EPP con animación: sale desde la tarjeta elegida y "vuela" a su lugar en el cuerpo.
+  equip(id, fromEl) {
+    if (this.equipped.includes(id)) return;
+    this.equipped.push(id);
+    const r = fromEl?.getBoundingClientRect();
+    const from = r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: innerWidth / 2, y: innerHeight / 2 };
+    this.anims.push({ id, from, start: performance.now() });
+  }
 
   // Convierte coordenadas normalizadas del video (0..1) a pixeles de pantalla,
   // considerando object-fit: cover y el espejo horizontal.
@@ -113,6 +136,7 @@ export class Vision {
         this.handResult = this.hands.detectForVideo(this.video, now);
         // El rostro se procesa en cuadros alternos para ahorrar CPU.
         if (this.face && this.frame % 2 === 0) this.faceResult = this.face.detectForVideo(this.video, now);
+        if (this.pose && this.frame % 3 === 1) this.poseResult = this.pose.detectForVideo(this.video, now);
       } catch (e) {
         console.warn(e);
       }
@@ -205,58 +229,135 @@ export class Vision {
     }
   }
 
-  // Realidad aumentada: dibuja los EPPs elegidos sobre el rostro / manos del jugador.
+  // Calcula dónde va cada parte del cuerpo en la pantalla, usando rostro, pose y manos.
+  // Devuelve { slot: [{ x, y, size, spread }] } (varias entradas = se dibuja en cada una, ej. dos manos).
+  anchors() {
+    const out = {};
+    const add = (slot, x, y, size, spread = size * 0.9) => (out[slot] ||= []).push({ x, y, size, spread });
+    const face = this.faceResult?.faceLandmarks?.[0];
+    const pose = this.poseResult?.landmarks?.[0];
+    const seen = (p) => p && (p.visibility ?? 1) > 0.5;
+    const S = (p) => this.toScreen(p);
+
+    let fw = 0;
+    if (face) {
+      const P = (i) => S(face[i]);
+      const top = P(10), chin = P(152), left = P(234), right = P(454), mouth = P(13);
+      const eyeL = P(33), eyeR = P(263);
+      fw = Math.hypot(right.x - left.x, right.y - left.y);
+      const fh = Math.hypot(chin.x - top.x, chin.y - top.y);
+      const cx = (left.x + right.x) / 2;
+      add('face', cx, (top.y + chin.y) / 2, fw * 1.25);
+      add('head', top.x, top.y - fh * 0.22, fw * 0.95, fw * 0.6);
+      add('eyes', (eyeL.x + eyeR.x) / 2, (eyeL.y + eyeR.y) / 2, fw * 0.6, fw * 0.35);
+      add('mouth', mouth.x, mouth.y + fh * 0.05, fw * 0.5, fw * 0.3);
+      const side = left.x < right.x ? -1 : 1;
+      add('ears', left.x + side * fw * 0.05, left.y, fw * 0.32, -side * fw * 0.2);
+      add('ears', right.x - side * fw * 0.05, right.y, fw * 0.32, side * fw * 0.2);
+      out._chin = { x: chin.x, y: chin.y, fh };
+    } else if (pose && seen(pose[0])) {
+      // Sin malla facial: aproximar la cabeza con los puntos de la pose.
+      const nose = S(pose[0]), earL = S(pose[7]), earR = S(pose[8]);
+      fw = Math.max(40, Math.hypot(earR.x - earL.x, earR.y - earL.y) * 1.1);
+      add('face', nose.x, nose.y, fw * 1.25);
+      add('head', nose.x, nose.y - fw * 0.85, fw * 0.95, fw * 0.6);
+      add('eyes', nose.x, nose.y - fw * 0.15, fw * 0.6, fw * 0.35);
+      add('mouth', nose.x, nose.y + fw * 0.3, fw * 0.5, fw * 0.3);
+      add('ears', earL.x, earL.y, fw * 0.32, fw * 0.2);
+      add('ears', earR.x, earR.y, fw * 0.32, -fw * 0.2);
+    }
+
+    if (pose && seen(pose[11]) && seen(pose[12])) {
+      const shL = S(pose[11]), shR = S(pose[12]);
+      const sw = Math.hypot(shR.x - shL.x, shR.y - shL.y);
+      const mid = { x: (shL.x + shR.x) / 2, y: (shL.y + shR.y) / 2 };
+      const hips = seen(pose[23]) && seen(pose[24]) ? { x: (S(pose[23]).x + S(pose[24]).x) / 2, y: (S(pose[23]).y + S(pose[24]).y) / 2 } : { x: mid.x, y: mid.y + sw * 1.2 };
+      add('chest', mid.x + (hips.x - mid.x) * 0.3, mid.y + (hips.y - mid.y) * 0.3, sw * 0.7);
+      add('body', mid.x + (hips.x - mid.x) * 0.65, mid.y + (hips.y - mid.y) * 0.65, sw * 0.5, sw * 0.55);
+      fw = fw || sw * 0.45;
+    } else if (out._chin) {
+      const { x, y, fh } = out._chin;
+      add('chest', x, y + fh * 0.75, fw * 0.9);
+      add('body', x, y + fh * 1.5, fw * 0.75);
+    }
+
+    // Manos: puntos de la mano si se ven; si no, las muñecas de la pose.
+    const hands = this.handResult?.landmarks || [];
+    if (hands.length) {
+      hands.forEach((lm) => {
+        const w = S(lm[0]), m = S(lm[9]);
+        const size = Math.max(36, Math.hypot(m.x - w.x, m.y - w.y) * 0.9);
+        add('hands', w.x, w.y + size * 0.4, size);
+      });
+    } else if (pose) {
+      [15, 16].filter((i) => seen(pose[i])).forEach((i) => { const w = S(pose[i]); add('hands', w.x, w.y, Math.max(40, fw * 0.45)); });
+    }
+
+    // Pies: solo si los tobillos aparecen en cámara (si no, el calzado se ve en la lista de la misión).
+    if (pose && seen(pose[27]) && seen(pose[28])) {
+      [27, 28].forEach((i) => { const a = S(pose[i]); add('feet', a.x, a.y, Math.max(40, fw * 0.5)); });
+    }
+    delete out._chin;
+    return out;
+  }
+
+  // Realidad aumentada: dibuja los EPPs elegidos sobre el jugador.
   drawEquipment(ctx) {
     if (!this.equipped.length) return;
-    const face = this.faceResult?.faceLandmarks?.[0];
+    const now = performance.now();
+    const A = this.anchors();
+    const FLY_MS = 650;
+    const flying = new Set(this.anims.filter((a) => now - a.start < FLY_MS).map((a) => a.id));
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const font = (size) => `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+
+    // EPPs ya colocados, agrupados por parte del cuerpo
     const slots = {};
     for (const id of this.equipped) {
       const slot = EPPS[id]?.slot;
-      if (slot) (slots[slot] ||= []).push(EPPS[id].icon);
+      if (slot && !flying.has(id)) (slots[slot] ||= []).push(id);
     }
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    const put = (icons, x, y, size, spread = size * 0.9) => {
-      ctx.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
-      icons.forEach((icon, i) => {
-        const dx = (i - (icons.length - 1) / 2) * spread;
-        ctx.fillText(icon, x + dx, y);
-      });
-    };
-
-    if (face) {
-      const P = (i) => this.toScreen(face[i]);
-      const top = P(10), chin = P(152), left = P(234), right = P(454), mouth = P(13);
-      const eyeL = P(33), eyeR = P(263);
-      const fw = Math.hypot(right.x - left.x, right.y - left.y);
-      const fh = Math.hypot(chin.x - top.x, chin.y - top.y);
-      const cx = (left.x + right.x) / 2;
-
-      if (slots.face) { ctx.globalAlpha = 0.55; put(slots.face, cx, (top.y + chin.y) / 2, fw * 1.25); ctx.globalAlpha = 1; }
-      if (slots.head) put(slots.head, top.x, top.y - fh * 0.22, fw * 0.95, fw * 0.6);
-      if (slots.eyes) put(slots.eyes, (eyeL.x + eyeR.x) / 2, (eyeL.y + eyeR.y) / 2, fw * 0.6, fw * 0.35);
-      if (slots.mouth) put(slots.mouth, mouth.x, mouth.y + fh * 0.05, fw * 0.5, fw * 0.3);
-      if (slots.ears) {
-        ctx.font = `${fw * 0.32}px sans-serif`;
-        slots.ears.forEach((icon, i) => {
-          ctx.fillText(icon, left.x + (left.x < right.x ? -1 : 1) * fw * (0.05 + i * 0.2), left.y);
-          ctx.fillText(icon, right.x + (right.x > left.x ? 1 : -1) * fw * (0.05 + i * 0.2), right.y);
+    for (const [slot, ids] of Object.entries(slots)) {
+      for (const a of A[slot] || []) {
+        ctx.font = font(a.size);
+        ctx.globalAlpha = slot === 'face' ? 0.55 : 1;
+        ids.forEach((id, i) => {
+          const dx = (i - (ids.length - 1) / 2) * a.spread;
+          const anim = this.anims.find((x) => x.id === id);
+          const t = anim ? (now - anim.start - FLY_MS) / 400 : 1;
+          if (t < 1) this.sparkle(ctx, a.x + dx, a.y, a.size, t);   // destello al llegar
+          ctx.fillText(EPPS[id].icon, a.x + dx, a.y);
         });
+        ctx.globalAlpha = 1;
       }
-      if (slots.chest) put(slots.chest, chin.x, chin.y + fh * 0.75, fw * 0.9);
-      if (slots.body) put(slots.body, chin.x, chin.y + fh * 1.5, fw * 0.75);
-      if (slots.feet) put(slots.feet, cx, innerHeight - fw * 0.35, fw * 0.6);
     }
-    if (slots.hands) {
-      const hands = this.handResult?.landmarks || [];
-      hands.forEach((lm) => {
-        const w = this.toScreen(lm[0]);
-        const m = this.toScreen(lm[9]);
-        const size = Math.max(36, Math.hypot(m.x - w.x, m.y - w.y) * 0.9);
-        put(slots.hands, w.x, w.y + size * 0.4, size);
-      });
+
+    // EPPs volando desde la tarjeta hasta el cuerpo
+    for (const anim of this.anims) {
+      const t = (now - anim.start) / FLY_MS;
+      if (t >= 1) continue;
+      const slot = EPPS[anim.id].slot;
+      const target = A[slot]?.[0] || { x: innerWidth / 2, y: innerHeight - 90, size: 60 };   // sin ancla: vuela a la lista
+      const e = 1 - (1 - t) ** 3;
+      const x = anim.from.x + (target.x - anim.from.x) * e;
+      const y = anim.from.y + (target.y - anim.from.y) * e - Math.sin(t * Math.PI) * 80;
+      const size = 60 + (target.size - 60) * e;
+      ctx.font = font(size);
+      ctx.fillText(EPPS[anim.id].icon, x, y);
     }
+    this.anims = this.anims.filter((a) => now - a.start < FLY_MS + 400);
+  }
+
+  sparkle(ctx, x, y, size, t) {
+    ctx.save();
+    ctx.globalAlpha = 1 - t;
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(x, y, size * (0.5 + t * 0.6), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 

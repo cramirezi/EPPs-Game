@@ -40,7 +40,7 @@ Los navegadores bloquean el sonido hasta el primer clic o toque real: al encende
 ## Visión por computadora
 
 - **Seguimiento de manos** (MediaPipe Hand Landmarker): 21 puntos por mano, hasta 2 manos. El índice mueve el cursor; la distancia pulgar‑índice detecta la "pinza".
-- **Malla facial** (MediaPipe Face Landmarker): ubica cabeza, ojos, orejas, boca y pecho para dibujar encima del jugador el casco, lentes, protector auditivo, respirador, chaleco, etc. que va eligiendo (realidad aumentada).
+- **Malla facial** (MediaPipe Face Landmarker) y **pose del cuerpo** (MediaPipe Pose Landmarker): cada EPP correcto "vuela" desde la tarjeta hasta el jugador y queda puesto sobre él en la pantalla: casco o cofia en la cabeza, lentes en los ojos, protector auditivo en las orejas, respirador en la boca, chaleco en el torso, overol y arnés en el cuerpo, guantes y linterna en las manos y calzado en los pies (si se ven en cámara). Además, la lista de EPP colocados se muestra en el centro de la pantalla.
 - Todo se procesa **localmente en el navegador**: el video no se envía ni se graba en ningún lado.
 - Las librerías y modelos están incluidos en `vendor/`, así que el juego funciona **sin internet** una vez descargado.
 
@@ -63,7 +63,7 @@ La cámara solo funciona en `https://` o en `localhost`, por eso no basta con ab
 - Pulsa **F** para pantalla completa, **M** para silenciar y **Esc** para volver al inicio.
 - Si nadie juega por ~75 s, el juego vuelve solo a la pantalla de inicio.
 - Usa buena iluminación frontal y evita tener una ventana detrás del jugador.
-- Recomendado: Chrome/Edge actualizado, cámara 720p, pantalla grande o proyector.
+- Recomendado: Chrome/Edge actualizado, cámara 720p, televisor o proyector. Ubica la cámara arriba o debajo del televisor y al jugador a unos 2 m para que se vea de la cintura (o de los pies) hacia arriba.
 
 ## Personalizar
 
@@ -87,5 +87,5 @@ js/game.js          Pantallas, niveles, temporizador y puntaje
 js/vision.js        Cámara, seguimiento de manos/rostro y cursor por gestos
 js/data.js          EPPs, áreas, misiones y niveles (editable)
 js/audio.js         Efectos, música y voz
-vendor/             MediaPipe Tasks Vision 0.10.14 y modelos (Apache 2.0)
+vendor/             MediaPipe Tasks Vision 0.10.14 y modelos de manos, rostro y pose (Apache 2.0)
 ```

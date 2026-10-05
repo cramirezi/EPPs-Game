@@ -244,10 +244,14 @@ function renderPlay(moved = false) {
     return `<button class="card ${cls}" data-hand data-action="pick" data-arg="${c.id}" ${c.status !== 'idle' ? 'disabled' : ''}>
       <span class="ico">${e.icon}</span><span class="lbl">${e.name}</span></button>`;
   };
-  const side = perCol === 2 ? '34vw' : '22vw';
+  const side = perCol === 2 ? '29vw' : '21vw';
   const count = r.level.showCount
     ? `<div class="count">EPP colocados: ${r.found.length} / ${r.mission.required.length}</div>`
     : `<div class="count">EPP colocados: ${r.found.length}</div>`;
+  // Lista de lo que ya lleva puesto (respaldo por si la cámara no ve bien al jugador).
+  const kit = r.found.length
+    ? `<div class="kit">${r.found.map((id, i, all) => `<span class="${i === all.length - 1 ? 'new' : ''}" title="${EPPS[id].name}">${EPPS[id].icon}</span>`).join('')}</div>`
+    : '';
   screen.innerHTML = html`
     <div class="play" style="--side:${side}">
       <div class="column" style="grid-template-columns:repeat(${perCol},1fr)">${cols[0].map(card).join('')}</div>
@@ -255,6 +259,7 @@ function renderPlay(moved = false) {
         <div class="area-name" style="color:${r.area.color}">${r.area.icon} ${r.area.name} · ${r.area.hazard}</div>
         <p>${r.mission.text}</p>
         ${count}
+        ${kit}
       </div>
       <div class="column" style="grid-template-columns:repeat(${perCol},1fr)">${cols[1].map(card).join('')}</div>
     </div>`;
@@ -277,7 +282,7 @@ function updateHud() {
     : '∞';
 }
 
-function pick(id) {
+function pick(id, el) {
   const r = state.run;
   if (!r || r.over) return;
   const card = r.cards.find((c) => c.id === id);
@@ -287,7 +292,7 @@ function pick(id) {
     card.status = 'ok';
     r.found.push(id);
     r.score += SCORE.correct;
-    vision.setEquipped(r.found);
+    vision.equip(id, el);
     sfx.good();
     speak(e.name);
     toast(`✓ ${e.icon} ${e.name}: ${e.why}`, 'ok');
@@ -407,7 +412,7 @@ const actions = {
   start: () => { sfx.click(); levelScreen(); },
   areas: () => { sfx.click(); areasScreen(); },
   pickArea: (id) => { sfx.click(); briefingScreen(id); },
-  pick: (id) => pick(id),
+  pick: (id, el) => pick(id, el),
   retry: () => { sfx.click(); levelScreen(); },
   nextLevel: () => { sfx.click(); state.level++; levelScreen(); },
   final: () => { sfx.fanfare(); finalScreen(); speak(`¡Felicitaciones! Completaste Misión EPP con ${state.total} puntos.`); },

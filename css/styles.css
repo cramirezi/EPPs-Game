@@ -49,7 +49,7 @@ body.playing #dim { background: rgba(2, 6, 23, 0.25); }
   pointer-events: none;
   z-index: 50;
 }
-#ar { z-index: 5; }
+#ar { z-index: 40; }  /* encima de la interfaz para que el EPP siempre se vea sobre el jugador */
 
 #app {
   position: fixed;
@@ -266,6 +266,8 @@ body.playing #dim { background: rgba(2, 6, 23, 0.25); }
 }
 .mission-box .area-name { font-weight: 800; font-size: clamp(0.9rem, 1.5vw, 1.2rem); }
 .mission-box p { margin: 0.6vh 0; color: #e2e8f0; font-size: clamp(0.85rem, 1.4vw, 1.15rem); }
+.mission-box .kit { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.4vw; margin-top: 0.6vh; font-size: clamp(1.6rem, 3.2vw, 2.8rem); line-height: 1.1; }
+.mission-box .kit span.new { animation: pop 0.5s; }
 .mission-box .count { font-weight: 800; color: var(--accent); font-size: clamp(1rem, 1.8vw, 1.5rem); }
 
 /* ---------- Resultados ---------- */
