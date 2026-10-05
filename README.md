@@ -20,10 +20,10 @@ Videojuego de seguridad que se juega **frente a una cámara, con las manos**. El
 | Nivel | Nombre | Tiempo | Opciones | Errores permitidos | Extra |
 |---|---|---|---|---|---|
 | 1 | Inducción | 60 s | 8 | ilimitados | Se muestra cuántos EPP faltan |
-| 2 | Operario | 50 s | 10 | 4 | −3 s por error, misiones más complejas |
-| 3 | Técnico | 45 s | 12 | 3 | −5 s por error, ya no se muestra cuántos EPP faltan |
-| 4 | Supervisor | 40 s | 14 | 3 | Misiones críticas (altura, noche, químicos); las tarjetas cambian de lugar cada 12 s |
-| 5 | Experto en Safety | 35 s | 16 | 2 | −7 s por error; las tarjetas cambian de lugar cada 8 s |
+| 2 | Operario | 50 s | 12 | 4 | −3 s por error, misiones más complejas |
+| 3 | Técnico | 45 s | 14 | 3 | −5 s por error, ya no se muestra cuántos EPP faltan |
+| 4 | Supervisor | 40 s | 16 | 3 | Misiones críticas (altura, noche, químicos); las tarjetas cambian de lugar cada 12 s |
+| 5 | Experto en Safety | 35 s | 18 | 2 | −7 s por error; las tarjetas cambian de lugar cada 8 s |
 
 Puntaje: +100 por EPP correcto, −50 por elemento incorrecto, −75 por EPP faltante, +10 por segundo restante y +300 por misión perfecta. Al final se guarda un ranking de mejores puntajes en el navegador del equipo.
 

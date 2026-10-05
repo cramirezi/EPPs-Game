@@ -127,10 +127,10 @@ export const AREAS = [
 // lives: errores permitidos antes de perder la misión (0 = ilimitado).
 export const LEVELS = [
   { n: 1, name: 'Inducción',          time: 60, cards: 8,  maxDiff: 1, showCount: true,  penalty: 0, lives: 0, shuffleEvery: 0 },
-  { n: 2, name: 'Operario',           time: 50, cards: 10, maxDiff: 2, showCount: true,  penalty: 3, lives: 4, shuffleEvery: 0 },
-  { n: 3, name: 'Técnico',            time: 45, cards: 12, maxDiff: 2, showCount: false, penalty: 5, lives: 3, shuffleEvery: 0 },
-  { n: 4, name: 'Supervisor',         time: 40, cards: 14, maxDiff: 3, showCount: false, penalty: 5, lives: 3, shuffleEvery: 12 },
-  { n: 5, name: 'Experto en Safety',  time: 35, cards: 16, maxDiff: 3, showCount: false, penalty: 7, lives: 2, shuffleEvery: 8 },
+  { n: 2, name: 'Operario',           time: 50, cards: 12, maxDiff: 2, showCount: true,  penalty: 3, lives: 4, shuffleEvery: 0 },
+  { n: 3, name: 'Técnico',            time: 45, cards: 14, maxDiff: 2, showCount: false, penalty: 5, lives: 3, shuffleEvery: 0 },
+  { n: 4, name: 'Supervisor',         time: 40, cards: 16, maxDiff: 3, showCount: false, penalty: 5, lives: 3, shuffleEvery: 12 },
+  { n: 5, name: 'Experto en Safety',  time: 35, cards: 18, maxDiff: 3, showCount: false, penalty: 7, lives: 2, shuffleEvery: 8 },
 ];
 
 // Puntaje
