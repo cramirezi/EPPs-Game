@@ -51,14 +51,13 @@ Si no hay cámara, se puede jugar con mouse o pantalla táctil.
 ### Opción A: GitHub Pages (recomendado)
 En el repositorio: **Settings → Pages → Build and deployment → Source: "Deploy from a branch"**, rama `main`, carpeta `/ (root)`. Luego abre `https://<usuario>.github.io/EPPs-Game/` en Chrome o Edge y acepta el permiso de cámara.
 
-### Opción B: en una laptop o kiosko
-La cámara solo funciona en `https://` o en `localhost`, así que no basta con abrir el `index.html` con doble clic. Desde la carpeta del proyecto:
+### Opción B: en esta computadora, sin internet (laptop o kiosko)
+1. Descarga el proyecto (botón **Code → Download ZIP** en GitHub, o `git clone`) y descomprímelo.
+2. **Windows:** doble clic en **`Jugar.bat`**. Se abre una ventana negra (déjala abierta) y el juego en el navegador. No hace falta instalar nada.
+3. **Mac / Linux:** ejecuta `./jugar.sh` (usa Python 3).
+4. Acepta el permiso de cámara en el navegador (Chrome o Edge).
 
-```bash
-python3 -m http.server 8000
-```
-
-y abre `http://localhost:8000` en Chrome o Edge.
+La cámara solo funciona en `https://` o en `localhost`, por eso no basta con abrir `index.html` con doble clic: los lanzadores levantan un pequeño servidor local en `http://localhost:8000`. Todo (librerías, modelos y sonidos) está dentro de la carpeta, así que después de descargarlo funciona sin internet.
 
 ### Consejos para el stand
 - Pulsa **F** para pantalla completa, **M** para silenciar y **Esc** para volver al inicio.
@@ -80,6 +79,9 @@ Ajusta los EPP requeridos según la matriz de EPP de cada área de la planta.
 
 ```
 index.html          Página del juego
+Jugar.bat           Lanzador para Windows (doble clic)
+jugar.sh            Lanzador para Mac/Linux
+tools/servidor.ps1  Servidor local usado por Jugar.bat
 css/styles.css      Estilos
 js/game.js          Pantallas, niveles, temporizador y puntaje
 js/vision.js        Cámara, seguimiento de manos/rostro y cursor por gestos
