@@ -27,6 +27,16 @@ Videojuego de seguridad que se juega **frente a una cámara, con las manos**. El
 
 Puntaje: +100 por EPP correcto, −50 por elemento incorrecto, −75 por EPP faltante, +10 por segundo restante y +300 por misión perfecta. Al final se guarda un ranking de mejores puntajes en el navegador del equipo.
 
+## Sonido
+
+Todo el audio se genera en el navegador (Web Audio y síntesis de voz), sin archivos externos:
+- Efectos para cada selección, EPP correcto o incorrecto, cuenta regresiva, cambio de tarjetas, misión cumplida o fallida y fanfarria final.
+- Música de fondo durante cada misión, más rápida en niveles altos y acelerada en los últimos 10 segundos.
+- Voz en español que lee el nivel, la misión, el nombre de cada EPP elegido, el motivo de cada error y lo que faltó.
+- Botón 🔊 abajo a la izquierda (o tecla **M**) para silenciar.
+
+Los navegadores bloquean el sonido hasta el primer clic o toque real: al encender el stand, haz un clic con el mouse (por ejemplo en el botón de sonido) y desde ahí todo se puede jugar solo con las manos.
+
 ## Visión por computadora
 
 - **Seguimiento de manos** (MediaPipe Hand Landmarker): 21 puntos por mano, hasta 2 manos. El índice mueve el cursor; la distancia pulgar‑índice detecta la "pinza".
@@ -51,7 +61,7 @@ python3 -m http.server 8000
 y abre `http://localhost:8000` en Chrome o Edge.
 
 ### Consejos para el stand
-- Pulsa **F** para pantalla completa y **Esc** para volver al inicio.
+- Pulsa **F** para pantalla completa, **M** para silenciar y **Esc** para volver al inicio.
 - Si nadie juega por ~75 s, el juego vuelve solo a la pantalla de inicio.
 - Usa buena iluminación frontal y evita tener una ventana detrás del jugador.
 - Recomendado: Chrome/Edge actualizado, cámara 720p, pantalla grande o proyector.
@@ -74,6 +84,6 @@ css/styles.css      Estilos
 js/game.js          Pantallas, niveles, temporizador y puntaje
 js/vision.js        Cámara, seguimiento de manos/rostro y cursor por gestos
 js/data.js          EPPs, áreas, misiones y niveles (editable)
-js/audio.js         Efectos de sonido
+js/audio.js         Efectos, música y voz
 vendor/             MediaPipe Tasks Vision 0.10.14 y modelos (Apache 2.0)
 ```

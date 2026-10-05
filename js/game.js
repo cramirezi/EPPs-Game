@@ -1,6 +1,6 @@
 import { EPPS, AREAS, LEVELS, SCORE } from './data.js';
 import { Vision } from './vision.js';
-import { sfx } from './audio.js';
+import { sfx, music, speak, sound } from './audio.js';
 
 const $ = (sel) => document.querySelector(sel);
 const screen = $('#screen');
@@ -66,7 +66,7 @@ function show(markup, { playing = false } = {}) {
   state.timer = null;
   document.body.classList.toggle('playing', playing);
   hud.hidden = !playing;
-  if (!playing) vision.setEquipped([]);
+  if (!playing) { vision.setEquipped([]); music.stop(); }
   screen.innerHTML = markup;
 }
 
@@ -126,6 +126,7 @@ function levelScreen() {
       <p class="subtitle">Puntaje acumulado: <strong>${state.total}</strong></p>
       <button class="btn" data-hand data-action="areas">Elegir área ▶</button>
     </div>`);
+  speak(`Nivel ${L.n}: ${L.name}. Tienes ${L.time} segundos por misión.`);
 }
 
 function areasScreen() {
@@ -186,6 +187,7 @@ function briefingScreen(areaId) {
       <div class="countdown" id="countdown">${n}</div>
     </div>`);
   sfx.count();
+  speak(`${area.name}. ${mission.title}. ${mission.text}`);
   state.timer = setInterval(() => {
     n--;
     if (n <= 0) return playScreen();
@@ -207,6 +209,8 @@ function playScreen() {
   r.lastShuffle = performance.now();
   renderPlay();
   updateHud();
+  sfx.go();
+  music.start(r.level.n);
   let lastSec = r.level.time;
   state.timer = setInterval(() => {
     const now = performance.now();
@@ -215,6 +219,7 @@ function playScreen() {
     const sec = Math.ceil(left);
     if (sec !== lastSec && sec <= 5 && sec > 0) sfx.tick();
     lastSec = sec;
+    music.urgent(left <= 10);
     if (left <= 0) return finish(false, 'time');
     if (r.level.shuffleEvery && now - r.lastShuffle > r.level.shuffleEvery * 1000) {
       r.lastShuffle = now;
@@ -222,6 +227,7 @@ function playScreen() {
       const shuffled = shuffle(idle);
       r.cards = r.cards.map((c) => (c.status === 'idle' ? shuffled.shift() : c));
       renderPlay(true);
+      sfx.shuffle();
       toast('🔀 ¡Las tarjetas cambiaron de lugar!');
     }
   }, 100);
@@ -283,6 +289,7 @@ function pick(id) {
     r.score += SCORE.correct;
     vision.setEquipped(r.found);
     sfx.good();
+    speak(e.name);
     toast(`✓ ${e.icon} ${e.name}: ${e.why}`, 'ok');
     if (r.found.length === r.mission.required.length) {
       clearInterval(state.timer);   // detener el reloj mientras se celebra
@@ -298,6 +305,7 @@ function pick(id) {
     if (r.level.penalty) r.endAt -= r.level.penalty * 1000;
     sfx.bad();
     const reason = e.distractor ? e.why : 'No es necesario para esta tarea.';
+    speak(`No. ${reason}`);
     toast(`✗ ${e.icon} ${e.name}: ${reason}${r.level.penalty ? `  (−${r.level.penalty} s)` : ''}`, 'bad');
     if (r.level.lives && r.wrong.length > r.level.lives) {
       renderPlay();
@@ -314,6 +322,7 @@ function finish(success, reason) {
   if (r.over) return;
   r.over = true;
   clearInterval(state.timer);
+  music.stop();
   const left = Math.max(0, Math.ceil(r.frozenLeft ?? (r.endAt - performance.now()) / 1000));
   const missing = r.mission.required.filter((id) => !r.found.includes(id));
   let points = r.found.length * SCORE.correct + r.wrong.length * SCORE.wrong + missing.length * SCORE.missing;
@@ -357,6 +366,9 @@ function finish(success, reason) {
         <button class="btn secondary" data-hand data-action="menu">Menú</button>
       </div>
     </div>`);
+  speak(success ? `${perfect ? 'Misión perfecta' : 'Misión cumplida'}. Ganaste ${points} puntos.`
+    : missing.length ? `${reason === 'time' ? 'Se acabó el tiempo' : 'Demasiados errores'}. Te faltó: ${missing.map((id) => EPPS[id].name).join(', ')}.`
+    : 'Demasiados errores. Inténtalo de nuevo.');
 }
 
 function loadScores() {
@@ -398,7 +410,7 @@ const actions = {
   pick: (id) => pick(id),
   retry: () => { sfx.click(); levelScreen(); },
   nextLevel: () => { sfx.click(); state.level++; levelScreen(); },
-  final: () => { sfx.click(); finalScreen(); },
+  final: () => { sfx.fanfare(); finalScreen(); speak(`¡Felicitaciones! Completaste Misión EPP con ${state.total} puntos.`); },
   save: () => {
     sfx.click();
     const name = ($('#name')?.value || '').trim() || `Jugador ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`;
@@ -427,8 +439,25 @@ addEventListener('keydown', (e) => {
     return;
   }
   if (e.key === 'Escape') introScreen();
+  if (e.key === 'm' || e.key === 'M') sound.toggle();
   if (e.key === 'f' || e.key === 'F') document.documentElement.requestFullscreen?.().catch(() => {});
 });
+
+// ---------- Botón de sonido ----------
+const soundBtn = $('#sound-btn');
+function renderSoundBtn() {
+  soundBtn.textContent = sound.muted ? '🔇 Sonido apagado' : sound.locked ? '🔈 Toca para activar sonido' : '🔊 Sonido';
+}
+// Si el navegador aún bloquea el audio, el primer clic real solo lo habilita.
+let wasLocked = false;
+soundBtn.addEventListener('pointerdown', () => { wasLocked = sound.locked && !sound.muted; });
+soundBtn.addEventListener('click', () => {
+  if (wasLocked) { wasLocked = false; setTimeout(renderSoundBtn, 150); return; }
+  sound.toggle();
+  sfx.click();
+});
+sound.onChange(renderSoundBtn);
+renderSoundBtn();
 
 introScreen();
 

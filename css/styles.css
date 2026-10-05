@@ -342,6 +342,22 @@ body.playing #dim { background: rgba(2, 6, 23, 0.25); }
 #toast.ok { border-color: var(--ok); }
 #toast.bad { border-color: var(--bad); }
 
+#sound-btn {
+  position: fixed;
+  left: 12px;
+  bottom: 10px;
+  z-index: 60;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: var(--panel-strong);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
 #cam-status {
   position: fixed;
   right: 12px;
