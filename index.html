@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Misión EPP · Safety Week 2026</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦺</text></svg>">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Cámara de fondo (en espejo) y capa de visión por computadora -->
+  <video id="cam" autoplay playsinline muted></video>
+  <div id="dim"></div>
+  <canvas id="ar"></canvas>      <!-- EPPs dibujados sobre el jugador (realidad aumentada) -->
+  <canvas id="overlay"></canvas> <!-- manos y cursor (encima de todo) -->
+
+  <div id="app">
+    <!-- Barra superior durante el juego -->
+    <header id="hud" hidden>
+      <div class="hud-block"><span class="hud-label">Nivel</span><span id="hud-level">1</span></div>
+      <div class="hud-block grow">
+        <div id="hud-mission">Misión</div>
+        <div id="timer"><div id="timer-fill"></div><span id="timer-text">60</span></div>
+      </div>
+      <div class="hud-block"><span class="hud-label">Errores</span><span id="hud-lives"></span></div>
+      <div class="hud-block"><span class="hud-label">Puntaje</span><span id="hud-score">0</span></div>
+    </header>
+
+    <main id="screen"></main>
+  </div>
+
+  <div id="toast" hidden></div>
+
+  <button id="sound-btn" data-hand title="Activar o silenciar el sonido (tecla M)">🔊 Sonido</button>
+
+  <div id="cam-status" title="Estado de la cámara">
+    <span id="cam-dot"></span><span id="cam-text">Iniciando cámara…</span>
+  </div>
+
+  <script type="module" src="js/game.js"></script>
+</body>
+</html>
